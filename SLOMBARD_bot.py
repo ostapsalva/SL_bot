@@ -1,3 +1,4 @@
+from flask import Flask, request
 import telebot
 from faqKZ import get_response as get_response_kz
 from faqRU import get_response as get_response_ru
@@ -5,6 +6,9 @@ from faqRU import get_response as get_response_ru
 # Настройка Telegram бота
 TOKEN = "7329116708:AAFsLQoXLZo1tMfHqyrtLmDrvoFnmvA1RR8"  # Замените на ваш реальный токен
 bot = telebot.TeleBot(TOKEN)
+
+# Создаем Flask приложение
+app = Flask(__name__)
 
 def detect_language(text):
     """
@@ -50,6 +54,23 @@ def handle_message(message):
     # Отправляем ответ пользователю
     bot.reply_to(message, response)
 
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """
+    Обработчик вебхука.
+    """
+    # Получаем обновление от Telegram
+    update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+    # Обрабатываем обновление
+    bot.process_new_updates([update])
+    return 'ok', 200
+
 if __name__ == "__main__":
-    print("Бот запущен...")
-    bot.polling(none_stop=True)  # Запуск бота
+    # Удаляем вебхук, если он был установлен ранее
+    bot.delete_webhook()
+
+    # Устанавливаем вебхук
+    bot.set_webhook(url="https://185.22.67.73/webhook")
+
+    # Запускаем Flask сервер
+    app.run(host='0.0.0.0', port=5000)
