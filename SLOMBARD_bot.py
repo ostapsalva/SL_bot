@@ -1,37 +1,55 @@
-import json
 import telebot
-from deepseek import DeepSeekAPI
-from flask import Flask, request
-
-# Загрузка FAQ из файлов
-from faqKZ import FAQ as FAQ_KZ
-from faqRU import FAQ as FAQ_RU
-
-# Настройка API DeepSeek (предположительно есть библиотека deepseek)
-deepseek = DeepSeekAPI(api_key="sk-10151018b0d14d5fa158139f226fa984")
+from faqKZ import get_response as get_response_kz
+from faqRU import get_response as get_response_ru
 
 # Настройка Telegram бота
-TOKEN = "7329116708:AAFsLQoXLZo1tMfHqyrtLmDrvoFnmvA1RR8"
+TOKEN = "7329116708:AAFsLQoXLZo1tMfHqyrtLmDrvoFnmvA1RR8"  # Замените на ваш реальный токен
 bot = telebot.TeleBot(TOKEN)
 
-def get_faq_response(message, language):
-    """Ищет ответ в соответствующем FAQ."""
-    faq = FAQ_KZ if language == "kk" else FAQ_RU
-    return faq.get(message, None)
-
-def get_ai_response(message):
-    """Получает ответ от DeepSeek, если вопрос отсутствует в FAQ."""
-    return deepseek.get_response(message)
+def detect_language(text):
+    """
+    Определяет язык сообщения на основе наличия казахских символов.
+    :param text: Текст сообщения от пользователя.
+    :return: "kk" (казахский) или "ru" (русский).
+    """
+    kazakh_chars = "қңүұөһ"  # Казахские символы
+    if any(char in text for char in kazakh_chars):
+        return "kk"
+    return "ru"
 
 @bot.message_handler(commands=["start", "help"])
 def send_welcome(message):
-    bot.reply_to(message, "Здравствуйте! Задайте свой вопрос, и я постараюсь помочь.")
+    """
+    Обработчик команд /start и /help.
+    Отправляет приветственное сообщение.
+    """
+    welcome_text = (
+        "Здравствуйте! Я бот Super Lombard.\n"
+        "Задайте свой вопрос, и я постараюсь помочь.\n"
+        "Примеры вопросов:\n"
+        "- Какие документы нужны для получения займа?\n"
+        "- Несие алу үшін қандай құжаттар қажет?"
+    )
+    bot.reply_to(message, welcome_text)
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
-    language = "kk" if any(c in message.text for c in "қңүұөһ") else "ru"
-    response = get_faq_response(message.text, language) or get_ai_response(message.text)
+    """
+    Обработчик всех текстовых сообщений.
+    Определяет язык вопроса и отправляет ответ.
+    """
+    user_message = message.text  # Текст сообщения от пользователя
+    language = detect_language(user_message)  # Определяем язык
+
+    # Получаем ответ в зависимости от языка
+    if language == "kk":
+        response = get_response_kz(user_message)
+    else:
+        response = get_response_ru(user_message)
+
+    # Отправляем ответ пользователю
     bot.reply_to(message, response)
 
 if __name__ == "__main__":
-    bot.polling(none_stop=True)
+    print("Бот запущен...")
+    bot.polling(none_stop=True)  # Запуск бота
