@@ -1,4 +1,4 @@
-FAQ = {
+FAQ_KZ = {
     "Несие алу үшін қандай құжаттар қажет?": "Несие 18 жасқа толған жеке тұлғаларға мыналарды көрсеткен кезде беріледі: Қазақстан Республикасы азаматының жеке куәлігі; Қазақстан Республикасы азаматының төлқұжаты; шетел азаматының төлқұжаты; азаматтығы жоқ адамның куәлігі; шетел азаматының Қазақстан Республикасында тұруға ықтиярхаты.",
     "Алтын бұйымдарды бағалау неге байланысты?": "Алтын бұйымдарды бағалау мыналарға байланысты: алтын стандарты (яғни заттың құрамындағы алтынның мөлшері); клиент мәртебесі; өнімнің салмағы; тастар мен қымбат емес элементтердің кірістірулерінің болуы.",
     "Super Lombard-тың әртүрлі филиалдарында алтын бағасының айырмашылығы бар ма?": "Барлық филиалдарда бірдей бағалар қолданылады. Ерекшелік - бұл баға клиенттің мәртебесіне байланысты.",
@@ -25,10 +25,19 @@ FAQ = {
     "Заттар кепілге алынған кезде гауһар тас тексеріле ме?": "Иә, гауһар тастар арнайы жабдықтары бар филиалдарда тексеріліп, бағаланады. Алмаздың сапасы белгілі бір критерийлерге сай болуы керек. Жоқ, егер филиалда бағалау аппаратурасы болмаса, гауһар тастарды тексеру және есепке алу жүргізілмейді."
 }
 
+SYNONYMS_KZ = {
+    "несие": ["қарыз", "заем"],
+    "ломбард": ["кәміл құрлық", "заттық қамтамасыз етумен несие"],
+    "алтын": ["алтын бұйымдар", "құнды металл"],
+    "кепіл": ["залог", "қамтамасыз ету"],
+    "ұзарту": ["мерзімін ұлғайту", "продление"],
+    # ... добавьте другие синонимы по необходимости ...
+}
+
 def get_deepseek_response(user_message):
-    # Замените на ваш реальный API-ключ DeepSeek
+    # Замените на ваш реальный API-ключ DeepSeek (лучше использовать переменные окружения!)
     api_key = "sk-10151018b0d14d5fa158139f226fa984"
-    url = "https://api.deepseek.com/v1/chat/completions"  # Пример URL API DeepSeek
+    url = "https://api.deepseek.com/v1/chat/completions"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -36,22 +45,29 @@ def get_deepseek_response(user_message):
     }
 
     data = {
-        "model": "deepseek-chat",  # Укажите модель DeepSeek
+        "model": "deepseek-chat",
         "messages": [{"role": "user", "content": user_message}]
     }
 
     try:
         response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()  # Проверка на ошибки HTTP
+        response.raise_for_status()
         result = response.json()
-        return result["choices"][0]["message"]["content"]  # Возвращаем ответ от DeepSeek
+        return result["choices"][0]["message"]["content"]
     except requests.exceptions.RequestException as e:
-        return f"Ошибка при обращении к DeepSeek API: {e}"
+        return f"DeepSeek API қатесі: {e}"
 
 def get_response(user_message):
-    # Проверяем, есть ли вопрос в FAQ
-    if user_message in FAQ:
-        return FAQ[user_message]
+    # Проверка на синонимы (если вопрос не найден в FAQ)
+    for keyword, synonyms in SYNONYMS_KZ.items():
+        if any(synonym in user_message.lower() for synonym in synonyms):
+            related_questions = [q for q in FAQ_KZ.keys() if keyword in q.lower()]
+            if related_questions:
+                return FAQ_KZ[related_questions[0]]  # Возвращаем первый подходящий ответ
+    
+    # Если вопрос есть в FAQ
+    if user_message in FAQ_KZ:
+        return FAQ_KZ[user_message]
     else:
-        # Если вопроса нет в FAQ, обращаемся к DeepSeek
+        # Иначе запрашиваем DeepSeek
         return get_deepseek_response(user_message)
