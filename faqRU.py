@@ -1,4 +1,4 @@
-FAQ = {
+FAQ_RU = {
     "Какие документы нужны для получения займа?": "Заем предоставляется физическим лицам, достигшим 18 лет, при предъявлении: удостоверение личности гражданина Республики Казахстан; паспорт гражданина Республики Казахстан; паспорт иностранного гражданина; удостоверение лица без гражданства; вид на жительство иностранного гражданина в Республике Казахстан.",
     "От чего зависит оценка золотых изделий?": "Оценка золотых изделий зависит от: пробы золота (т.е. количества золота, содержащегося в изделии); статуса клиента; веса изделия; наличия вставок из камней и недрагоценных элементов.",
     "Есть ли разница в расценке на золото в разных филиалах Super Ломбард?": "Во всех филиалах действуют одинаковые расценки. Исключение составляют случаи, когда расценка зависит от статуса клиента.",
@@ -24,10 +24,20 @@ FAQ = {
     "Имеется ли у вас техника на продажу?": "На продажу у нас имеется техника. Для подробной информации можно обратиться по номеру: 8 707 121 87 07.",
     "Производится ли осмотр бриллиантов при приеме в залог изделий?": "Да, осмотр и оценка бриллиантов производятся в филиалах, где есть специальные приборы. Качество бриллианта должно соответствовать определенным критериям. Нет, если в филиале отсутствуют приборы для оценки, осмотр и учет бриллиантов не производится."
 }
+SYNONYMS_RU = {
+    "займ": ["кредит", "ссуда", "микрозайм"],
+    "ломбард": ["залоговый магазин", "кредит под залог"],
+    "золото": ["золотые изделия", "драгметалл"],
+    "залог": ["залоговый билет", "обеспечение"],
+    "продление": ["продлить срок", "увеличение срока"],
+    "выкуп": ["погашение", "возврат залога"],
+    # ... добавьте другие синонимы по необходимости ...
+}
+
 def get_deepseek_response(user_message):
-    # Замените на ваш реальный API-ключ DeepSeek
+    # Замените на ваш реальный API-ключ DeepSeek (рекомендуется использовать переменные окружения)
     api_key = "sk-10151018b0d14d5fa158139f226fa984"
-    url = "https://api.deepseek.com/v1/chat/completions"  # Пример URL API DeepSeek
+    url = "https://api.deepseek.com/v1/chat/completions"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -35,22 +45,33 @@ def get_deepseek_response(user_message):
     }
 
     data = {
-        "model": "deepseek-chat",  # Укажите модель DeepSeek
+        "model": "deepseek-chat",
         "messages": [{"role": "user", "content": user_message}]
     }
 
     try:
         response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()  # Проверка на ошибки HTTP
+        response.raise_for_status()
         result = response.json()
-        return result["choices"][0]["message"]["content"]  # Возвращаем ответ от DeepSeek
+        return result["choices"][0]["message"]["content"]
     except requests.exceptions.RequestException as e:
         return f"Ошибка при обращении к DeepSeek API: {e}"
 
 def get_response(user_message):
-    # Проверяем, есть ли вопрос в FAQ
-    if user_message in FAQ:
-        return FAQ[user_message]
-    else:
-        # Если вопроса нет в FAQ, обращаемся к DeepSeek
-        return get_deepseek_response(user_message)
+    # Приводим вопрос к нижнему регистру для унификации
+    lower_message = user_message.lower()
+    
+    # 1. Проверка на точное совпадение в FAQ
+    if user_message in FAQ_RU:
+        return FAQ_RU[user_message]
+    
+    # 2. Поиск по синонимам
+    for keyword, synonyms in SYNONYMS_RU.items():
+        if any(synonym in lower_message for synonym in synonyms):
+            # Ищем вопросы в FAQ, содержащие ключевое слово
+            related_questions = [q for q in FAQ_RU.keys() if keyword in q.lower()]
+            if related_questions:
+                return FAQ_RU[related_questions[0]]  # Возвращаем первый подходящий ответ
+    
+    # 3. Если вопрос не найден - используем DeepSeek
+    return get_deepseek_response(user_message)
