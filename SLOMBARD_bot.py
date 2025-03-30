@@ -137,14 +137,17 @@ def handle_message(message):
         logger.info(f"New message ({lang}): {user_message[:100]}...")  # Логируем первые 100 символов
 
         # 1. Пробуем получить ответ из FAQ
-        faq_response = get_kz_response(user_message) if lang == "kk" else get_ru_response(user_message)
-        
-        # Проверяем, что это не стандартное подтверждение
-        if faq_response and not any(phrase in faq_response.lower() for phrase in 
-                                  ["қабылданды", "принят", "свяжемся", "береміз"]):
-            logger.info("Sending FAQ response")
-            bot.reply_to(message, faq_response)
-            return
+        try:
+            faq_response = get_kz_response(user_message) if lang == "kk" else get_ru_response(user_message)
+            
+            # Проверяем, что это не стандартное подтверждение
+            if faq_response and not any(phrase in faq_response.lower() for phrase in 
+                                      ["қабылданды", "принят", "свяжемся", "береміз"]):
+                logger.info("Sending FAQ response")
+                bot.reply_to(message, faq_response)
+                return
+        except Exception as faq_error:
+            logger.error(f"FAQ processing error: {str(faq_error)}")
 
         # 2. Пробуем получить ответ от DeepSeek
         try:
@@ -157,17 +160,17 @@ def handle_message(message):
             logger.error(f"DeepSeek processing failed: {str(ai_error)}")
 
         # 3. Создаем лид в Bitrix24 как резервный вариант
-        lead_data = {
-            "fields": {
-                "TITLE": f"Необработанный запрос от {chat_id}",
-                "NAME": f"Telegram User {chat_id}",
-                "COMMENTS": f"Язык: {lang}\n\nЗапрос:\n{user_message}\n\nНе удалось сгенерировать автоматический ответ",
-                "IM": [{"VALUE": f"tg:{chat_id}", "VALUE_TYPE": "OTHER"}],
-                "SOURCE_ID": "TELEGRAM_BOT"
-            }
-        }
-        
         try:
+            lead_data = {
+                "fields": {
+                    "TITLE": f"Необработанный запрос от {chat_id}",
+                    "NAME": f"Telegram User {chat_id}",
+                    "COMMENTS": f"Язык: {lang}\n\nЗапрос:\n{user_message}\n\nНе удалось сгенерировать автоматический ответ",
+                    "IM": [{"VALUE": f"tg:{chat_id}", "VALUE_TYPE": "OTHER"}],
+                    "SOURCE_ID": "TELEGRAM_BOT"
+                }
+            }
+            
             bitrix_response = requests.post(
                 f"{BITRIX_WEBHOOK_URL}crm.lead.add",
                 json={"fields": lead_data},
@@ -210,7 +213,7 @@ def handle_message(message):
         error_msg = {
             "ru": "⚠ На сервере произошла ошибка. Мы уже работаем над решением проблемы.",
             "kk": "⚠ Серверде қате пайда болды. Біз мәселені шешу үстіндеміз."
-        }.get(lang, "⚠ Server error. Please try again later.")
+        }.get(lang, "⚠ System error. Please try again later.")
         
         bot.reply_to(message, error_msg)
 
@@ -224,6 +227,6 @@ def webhook():
     return '', 403
 
 if __name__ == '__main__':
-    logger.info("Starting bot in polling mode...")
+    logger.info("Starting bot...")
     bot.remove_webhook()
     bot.polling(none_stop=True, timeout=60)
