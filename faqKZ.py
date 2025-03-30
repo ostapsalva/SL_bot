@@ -1,3 +1,5 @@
+import requests  # Добавлен импорт
+
 FAQ_KZ = {
     "Несие алу үшін қандай құжаттар қажет?": "Несие 18 жасқа толған жеке тұлғаларға мыналарды көрсеткен кезде беріледі: Қазақстан Республикасы азаматының жеке куәлігі; Қазақстан Республикасы азаматының төлқұжаты; шетел азаматының төлқұжаты; азаматтығы жоқ адамның куәлігі; шетел азаматының Қазақстан Республикасында тұруға ықтиярхаты.",
     "Алтын бұйымдарды бағалау неге байланысты?": "Алтын бұйымдарды бағалау мыналарға байланысты: алтын стандарты (яғни заттың құрамындағы алтынның мөлшері); клиент мәртебесі; өнімнің салмағы; тастар мен қымбат емес элементтердің кірістірулерінің болуы.",
@@ -35,7 +37,7 @@ SYNONYMS_KZ = {
 }
 
 def get_deepseek_response(user_message):
-    # Замените на ваш реальный API-ключ DeepSeek (лучше использовать переменные окружения!)
+    """Функция запроса к DeepSeek API"""
     api_key = "sk-10151018b0d14d5fa158139f226fa984"
     url = "https://api.deepseek.com/v1/chat/completions"
 
@@ -52,22 +54,27 @@ def get_deepseek_response(user_message):
     try:
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
+        return response.json()["choices"][0]["message"]["content"]
     except requests.exceptions.RequestException as e:
         return f"DeepSeek API қатесі: {e}"
 
 def get_response(user_message):
-    # Проверка на синонимы (если вопрос не найден в FAQ)
-    for keyword, synonyms in SYNONYMS_KZ.items():
-        if any(synonym in user_message.lower() for synonym in synonyms):
-            related_questions = [q for q in FAQ_KZ.keys() if keyword in q.lower()]
-            if related_questions:
-                return FAQ_KZ[related_questions[0]]  # Возвращаем первый подходящий ответ
+    """Основная функция обработки запроса"""
+    # Проверка на пустые сообщения
+    if not user_message.strip():
+        return "Сұрағыңыз қабылданды! Жауап береміз."
     
-    # Если вопрос есть в FAQ
+    # Поиск точного совпадения
     if user_message in FAQ_KZ:
         return FAQ_KZ[user_message]
-    else:
-        # Иначе запрашиваем DeepSeek
-        return get_deepseek_response(user_message)
+    
+    # Поиск по синонимам
+    lower_msg = user_message.lower()
+    for keyword, synonyms in SYNONYMS_KZ.items():
+        if any(syn in lower_msg for syn in synonyms):
+            related_q = [q for q in FAQ_KZ.keys() if keyword in q.lower()]
+            if related_q:
+                return FAQ_KZ[related_q[0]]
+    
+    # Если вопрос не найден - запрос к DeepSeek
+    return get_deepseek_response(user_message)
